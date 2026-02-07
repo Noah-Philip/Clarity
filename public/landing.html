@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clarity • Flow Landing</title>
+    <link rel="stylesheet" href="/landing.css" />
+  </head>
+  <body>
+    <main class="landing">
+      <canvas id="riverCanvas" aria-hidden="true"></canvas>
+      <div id="chipLayer" class="chip-layer" aria-live="polite"></div>
+
+      <section class="hero">
+        <a class="workspace-link" href="/index.html">← Open workspace</a>
+        <h1>Ask the river.<br />Watch ideas converge.</h1>
+        <p>
+          Clarity distills scattered conversations into a fast synthesis. Type a question and matching insight chips
+          flow into the orb.
+        </p>
+        <div class="hero-controls">
+          <input id="heroQuestion" type="text" placeholder="Who owns launch rehearsal runbook updates?" />
+          <div id="orb" class="synthesis-orb" role="status" aria-label="Synthesis orb">
+            <div class="orb-core"></div>
+            <div id="answerCard" class="answer-card hidden" aria-live="polite"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/landing.js"></script>
+  </body>
+</html>
