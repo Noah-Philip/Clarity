@@ -29,6 +29,52 @@ const DEFAULT_MESSAGES = [
 
 const clients = new Set();
 
+const ORG_AI_CHANNEL = 'ask-org';
+const ORG_AI_BOT_USER = 'OrgAI';
+
+const ORG_AI_KB = [
+  {
+    id: 'thermal-tests',
+    keywords: ['thermal', 'avionics', 'thursday', 'test'],
+    responses: [
+      'Thermal test status: final avionics thermal tests are due Thursday at 4 PM, owned by Lena. If this changed, pin the update so I can prioritize it.',
+      'From current team notes: avionics thermal testing has a Thursday 4 PM deadline and Lena is the owner. I can draft a reminder in #general if useful.'
+    ]
+  },
+  {
+    id: 'guidance-owner',
+    keywords: ['guidance', 'fault', 'signoff', 'monte', 'carlo'],
+    responses: [
+      'Guidance ownership snapshot: Priya owns guidance fault-tree signoff. Noah offered Monte Carlo rerun coverage this sprint but asked for backup.',
+      'Latest guidance thread says Priya is accountable for fault-tree signoff, while Monte Carlo reruns still need a named secondary owner.'
+    ]
+  },
+  {
+    id: 'propulsion',
+    keywords: ['propulsion', 'injector', 'manifold', 'tank', 'pressure', 'calibration'],
+    responses: [
+      'Propulsion update: injector anomaly was resolved with the rev-C manifold. Tank pressure limits are unchanged; only sensor calibration offsets changed.',
+      'On propulsion: rev-C manifold addressed the injector anomaly. Teams should keep existing tank pressure limits and apply calibration offset updates only.'
+    ]
+  },
+  {
+    id: 'runbook',
+    keywords: ['runbook', 'rehearsal', 'launch', 'ops', 'jan', '12'],
+    responses: [
+      'For launch rehearsal runbook questions, start with the Jan 12 #ops thread summary. That is still the recommended reference from Priya.',
+      'Runbook guidance: Priya pointed everyone to the Jan 12 #ops summary. I can summarize it if you paste key excerpts here.'
+    ]
+  },
+  {
+    id: 'ownership',
+    keywords: ['owner', 'owns', 'ownership', 'decision', 'decide', 'responsible'],
+    responses: [
+      'Ownership cues from recent messages: Ops owns hotfire checklist work during launch week, Lena owns thermal tests, and Priya owns guidance signoff.',
+      'Current ownership map: hotfire checklist → Ops, thermal tests → Lena, guidance fault-tree signoff → Priya.'
+    ]
+  }
+];
+
 function ensureDataDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -174,6 +220,45 @@ function runRag(question, maxAgeHours = 72) {
   };
 }
 
+function generateOrgAiReply(question) {
+  const lowered = question.toLowerCase();
+  let bestMatch = null;
+  let bestScore = 0;
+
+  for (const topic of ORG_AI_KB) {
+    const score = topic.keywords.reduce((sum, token) => sum + (lowered.includes(token) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = topic;
+    }
+  }
+
+  if (bestMatch && bestScore > 0) {
+    const index = Math.floor(Math.random() * bestMatch.responses.length);
+    return bestMatch.responses[index];
+  }
+
+  const fallback = [
+    'I can help, but I need a little more detail. Ask about ownership, decisions, propulsion, guidance, thermal tests, or launch runbooks and I will synthesize what the org has said.',
+    'I do not have a strong match for that yet. Try phrasing as “who owns X” or “what was decided about Y” so I can ground the answer in known team updates.'
+  ];
+  return fallback[Math.floor(Math.random() * fallback.length)];
+}
+
+function maybeCreateOrgAiReply(message) {
+  if (message.channel !== ORG_AI_CHANNEL) return null;
+  if (message.user === ORG_AI_BOT_USER) return null;
+
+  return {
+    id: db.nextId++,
+    channel: ORG_AI_CHANNEL,
+    user: ORG_AI_BOT_USER,
+    text: generateOrgAiReply(message.text),
+    timestamp: Date.now(),
+    pinned: false
+  };
+}
+
 function broadcast(event, payload) {
   const body = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const res of clients) res.write(body);
@@ -250,8 +335,11 @@ const server = http.createServer((req, res) => {
           pinned: Boolean(parsed.pinned)
         };
         db.messages.push(msg);
+        const aiReply = maybeCreateOrgAiReply(msg);
+        if (aiReply) db.messages.push(aiReply);
         saveDb(db);
         broadcast('message', msg);
+        if (aiReply) broadcast('message', aiReply);
         return writeJson(res, 201, msg);
       } catch {
         return writeJson(res, 400, { error: 'Invalid JSON' });
