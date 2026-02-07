@@ -29,8 +29,11 @@
         </form>
       </main>
 
-      <aside class="ai-pane">
-        <h3>🧠 AI Insights</h3>
+      <aside id="aiPane" class="ai-pane">
+        <div class="ai-pane-header">
+          <h3>🧠 AI Insights</h3>
+          <button id="hideAiPane" class="pane-toggle" type="button" aria-label="Hide AI insights panel">→</button>
+        </div>
         <label>⏳ AI Timewarp Slider <input id="timewarp" type="range" min="12" max="240" step="12" value="72" /></label>
         <small id="timewarpLabel">Using last 72 hours + pinned</small>
         <form id="askForm" class="ask-form">
@@ -42,6 +45,8 @@
         <canvas id="spark" width="220" height="54"></canvas>
         <div id="sources" class="sources"></div>
       </aside>
+
+      <button id="showAiPane" class="show-ai hidden" type="button" aria-label="Show AI insights panel">🧠 Show AI</button>
     </div>
 
     <div id="commandPalette" class="palette hidden">

@@ -9,9 +9,16 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: radial-gradient(circle at top,#1f2340,#101219 55%); color: var(--text); font-family: Inter, system-ui, sans-serif; }
-.app-shell { display: grid; grid-template-columns: 240px 1fr 360px; height: 100vh; }
+.app-shell { display: grid; grid-template-columns: 240px 1fr 360px; height: 100vh; transition: grid-template-columns .2s ease; }
+.app-shell.ai-collapsed { grid-template-columns: 240px 1fr auto; }
 .sidebar,.chat-pane,.ai-pane{ padding: 16px; border-right: 1px solid #2c3046; }
-.ai-pane{ border-right: none; background: rgba(20,24,34,.7); }
+.ai-pane{ border-right: none; background: rgba(20,24,34,.7); width:360px; overflow:hidden; transition: width .2s ease, padding .2s ease, opacity .2s ease; }
+.ai-pane-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.ai-pane-header h3{ margin:0; }
+.pane-toggle{ background:#272d44; color:#dce3ff; padding:6px 10px; font-size:1rem; line-height:1; }
+.show-ai{ position:sticky; right:12px; align-self:start; margin:16px 16px 0 0; background:#272d44; color:#dce3ff; }
+.app-shell.ai-collapsed .ai-pane{ width:0; padding:0; opacity:0; border-right:none; pointer-events:none; }
+.app-shell.ai-collapsed .show-ai{ display:block; }
 .subtitle{ color: var(--sub); font-size: .82rem; }
 .channels button{ width: 100%; background: transparent; color: var(--sub); border: 1px solid transparent; text-align: left; padding: 8px; border-radius: 10px; margin-bottom: 4px; cursor: pointer; }
 .channels button.active,.channels button:hover{ background: #23283a; color: white; border-color:#3a4160; }
@@ -32,8 +39,8 @@ button{ background: var(--accent); color:white; border:none; cursor:pointer; }
 .source{ margin-bottom:8px; background:#1a1f2f; border:1px solid #333a54; padding:10px; border-radius:10px; animation: bloom .35s ease-out; }
 .source .score{ color: var(--good); font-size:.75rem; }
 .thinking{ color: #9eb1ff; font-size:.85rem; margin-bottom:8px; }
-.hidden{ display:none; }
-.palette.hidden{ display:none; }
+.hidden{ display:none !important; }
+.palette.hidden{ display:none !important; }
 .palette{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:grid; place-items:start center; padding-top:10vh; }
 .palette-card{ width: min(700px, 90vw); background:#1b2031; border:1px solid #3a4263; border-radius:14px; padding:14px; }
 .palette-card input{ width:100%; margin-top:8px; }
