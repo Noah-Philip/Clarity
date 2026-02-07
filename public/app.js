@@ -23,7 +23,11 @@ const nodes = {
   spark: document.getElementById('spark'),
   commandPalette: document.getElementById('commandPalette'),
   paletteInput: document.getElementById('paletteInput'),
-  openCommand: document.getElementById('openCommand')
+  openCommand: document.getElementById('openCommand'),
+  appShell: document.querySelector('.app-shell'),
+  aiPane: document.getElementById('aiPane'),
+  hideAiPane: document.getElementById('hideAiPane'),
+  showAiPane: document.getElementById('showAiPane')
 };
 
 async function api(path, options = {}) {
@@ -146,6 +150,21 @@ nodes.askForm.addEventListener('submit', (event) => {
 
 nodes.timewarp.addEventListener('input', () => {
   nodes.timewarpLabel.textContent = `Using last ${nodes.timewarp.value} hours + pinned`;
+});
+
+
+function setAiPaneCollapsed(collapsed) {
+  nodes.appShell.classList.toggle('ai-collapsed', collapsed);
+  nodes.showAiPane.classList.toggle('hidden', !collapsed);
+  nodes.aiPane.setAttribute('aria-hidden', String(collapsed));
+}
+
+nodes.hideAiPane.addEventListener('click', () => {
+  setAiPaneCollapsed(true);
+});
+
+nodes.showAiPane.addEventListener('click', () => {
+  setAiPaneCollapsed(false);
 });
 
 nodes.openCommand.onclick = () => {
