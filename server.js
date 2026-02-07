@@ -3,9 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '0.0.0.0';
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DB_FILE = process.env.DB_FILE || path.join(DATA_DIR, 'db.json');
 
-const channels = [
+const DEFAULT_CHANNELS = [
   { id: 'general', name: '#general' },
   { id: 'propulsion', name: '#propulsion' },
   { id: 'guidance', name: '#guidance' },
@@ -13,8 +16,7 @@ const channels = [
   { id: 'ask-org', name: '#ask-org-ai' }
 ];
 
-let nextId = 9;
-const messages = [
+const DEFAULT_MESSAGES = [
   { id: 1, channel: 'general', user: 'Maya', text: 'Decision: hotfire checklist ownership moves to Ops for launch week.', timestamp: Date.now() - 1000 * 60 * 60 * 3, pinned: true },
   { id: 2, channel: 'propulsion', user: 'Ari', text: 'We resolved injector anomaly by switching to rev-C manifold. Document update pending.', timestamp: Date.now() - 1000 * 60 * 60 * 22, pinned: true },
   { id: 3, channel: 'guidance', user: 'Noah', text: 'Who owns Monte Carlo reruns? I can cover this sprint but need backup.', timestamp: Date.now() - 1000 * 60 * 60 * 32, pinned: false },
@@ -26,6 +28,46 @@ const messages = [
 ];
 
 const clients = new Set();
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function loadDb() {
+  ensureDataDir();
+  if (!fs.existsSync(DB_FILE)) {
+    const seeded = {
+      channels: DEFAULT_CHANNELS,
+      messages: DEFAULT_MESSAGES,
+      nextId: Math.max(...DEFAULT_MESSAGES.map((m) => m.id)) + 1
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(seeded, null, 2));
+    return seeded;
+  }
+
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    return {
+      channels: Array.isArray(parsed.channels) ? parsed.channels : DEFAULT_CHANNELS,
+      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      nextId: Number(parsed.nextId) || (Math.max(0, ...(parsed.messages || []).map((m) => Number(m.id) || 0)) + 1)
+    };
+  } catch {
+    const fallback = {
+      channels: DEFAULT_CHANNELS,
+      messages: [],
+      nextId: 1
+    };
+    fs.writeFileSync(DB_FILE, JSON.stringify(fallback, null, 2));
+    return fallback;
+  }
+}
+
+function saveDb(db) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+const db = loadDb();
 
 function writeJson(res, status, payload) {
   res.writeHead(status, {
@@ -110,7 +152,7 @@ function synthesizeAnswer(question, top) {
 function runRag(question, maxAgeHours = 72) {
   const questionVec = vectorize(tokenize(question));
   const now = Date.now();
-  const scored = messages
+  const scored = db.messages
     .map((m) => ({ ...m, score: scoreMessage(questionVec, m, now, maxAgeHours) }))
     .filter((m) => m.score > 0.01)
     .sort((a, b) => b.score - a.score);
@@ -169,8 +211,12 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'OPTIONS') return writeJson(res, 200, {});
 
+  if (url.pathname === '/api/health' && req.method === 'GET') {
+    return writeJson(res, 200, { ok: true, dbFile: DB_FILE, messages: db.messages.length });
+  }
+
   if (url.pathname === '/api/state' && req.method === 'GET') {
-    return writeJson(res, 200, { channels, messages: messages.slice(-200) });
+    return writeJson(res, 200, { channels: db.channels, messages: db.messages.slice(-500) });
   }
 
   if (url.pathname === '/api/stream' && req.method === 'GET') {
@@ -196,17 +242,18 @@ const server = http.createServer((req, res) => {
           return writeJson(res, 400, { error: 'Missing text/channel/user' });
         }
         const msg = {
-          id: nextId++,
+          id: db.nextId++,
           channel: parsed.channel,
           user: parsed.user,
           text: parsed.text.trim(),
           timestamp: Date.now(),
           pinned: Boolean(parsed.pinned)
         };
-        messages.push(msg);
+        db.messages.push(msg);
+        saveDb(db);
         broadcast('message', msg);
         return writeJson(res, 201, msg);
-      } catch (err) {
+      } catch {
         return writeJson(res, 400, { error: 'Invalid JSON' });
       }
     });
@@ -224,7 +271,7 @@ const server = http.createServer((req, res) => {
         const rag = runRag(parsed.question, maxAgeHours);
         broadcast('pulse', { sourceIds: rag.sources.map((s) => s.id) });
         writeJson(res, 200, rag);
-      } catch (err) {
+      } catch {
         writeJson(res, 400, { error: 'Invalid JSON' });
       }
     });
@@ -234,6 +281,7 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, url.pathname);
 });
 
-server.listen(PORT, () => {
-  console.log(`Clarity workspace running on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Clarity workspace running on http://${HOST}:${PORT}`);
+  console.log(`Data persisted in ${DB_FILE}`);
 });

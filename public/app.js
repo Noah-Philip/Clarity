@@ -180,12 +180,17 @@ async function init() {
   renderChannels();
   renderMessages();
 
+  connectStream();
+}
+
+function connectStream() {
   const stream = new EventSource('/api/stream');
   stream.addEventListener('message', (event) => {
     const payload = JSON.parse(event.data);
     state.messages.push(payload);
     renderMessages();
   });
+
   stream.addEventListener('pulse', (event) => {
     const payload = JSON.parse(event.data);
     state.highlighted = new Set(payload.sourceIds);
@@ -195,6 +200,11 @@ async function init() {
       renderMessages();
     }, 2600);
   });
+
+  stream.onerror = () => {
+    stream.close();
+    setTimeout(connectStream, 1500);
+  };
 }
 
 init();
