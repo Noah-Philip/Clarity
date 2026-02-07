@@ -3,60 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Clarity • Org Chat RAG</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <title>Clarity • Flow Landing</title>
+    <link rel="stylesheet" href="/landing.css" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="sidebar">
-        <h1>Clarity</h1>
-        <p class="subtitle">AI-Powered Knowledge Workspace</p>
-        <div id="channels" class="channels"></div>
-        <button id="openCommand" class="cmd-btn">⌨️ Ask Org (Ctrl/Cmd + K)</button>
-        <a class="landing-link" href="/landing.html">✨ View Flow Landing</a>
-      </aside>
+    <main class="landing">
+      <canvas id="riverCanvas" aria-hidden="true"></canvas>
+      <div id="chipLayer" class="chip-layer" aria-live="polite"></div>
 
-      <main class="chat-pane">
-        <header>
-          <h2 id="channelTitle">#general</h2>
-          <div class="presence">🔴 Live Thread Pulse active</div>
-        </header>
-        <section id="messages" class="messages"></section>
-        <form id="composer" class="composer">
-          <input id="user" value="You" aria-label="name" />
-          <input id="messageInput" placeholder="Message #general" required />
-          <label><input id="pinToggle" type="checkbox"/> mark relevant</label>
-          <button type="submit">Send</button>
-        </form>
-      </main>
-
-      <aside id="aiPane" class="ai-pane">
-        <div class="ai-pane-header">
-          <h3>🧠 AI Insights</h3>
-          <button id="hideAiPane" class="pane-toggle" type="button" aria-label="Hide AI insights panel">→</button>
+      <section class="hero">
+        <a class="workspace-link" href="/workspace.html">← Open workspace</a>
+        <h1>Ask the river.<br />Watch ideas converge.</h1>
+        <p>
+          Clarity distills scattered conversations into a fast synthesis. Type a question and matching insight chips
+          are pulled into one answer.
+        </p>
+        <div class="hero-controls">
+          <input id="heroQuestion" type="text" placeholder="Who owns launch rehearsal runbook updates?" />
+          <div id="orb" class="synthesis-orb" role="status" aria-label="Synthesis orb">
+            <div class="orb-core"></div>
+            <div id="answerCard" class="answer-card hidden" aria-live="polite"></div>
+          </div>
         </div>
-        <label>⏳ AI Timewarp Slider <input id="timewarp" type="range" min="12" max="240" step="12" value="72" /></label>
-        <small id="timewarpLabel">Using last 72 hours + pinned</small>
-        <form id="askForm" class="ask-form">
-          <input id="question" placeholder="What did we decide about thermal tests?" required />
-          <button>Ask</button>
-        </form>
-        <div id="thinking" class="thinking hidden">AI is tracing thought trail...</div>
-        <div id="answer" class="answer-card"></div>
-        <canvas id="spark" width="220" height="54"></canvas>
-        <div id="sources" class="sources"></div>
-      </aside>
+      </section>
+    </main>
 
-      <button id="showAiPane" class="show-ai hidden" type="button" aria-label="Show AI insights panel">🧠 Show AI</button>
-    </div>
-
-    <div id="commandPalette" class="palette hidden">
-      <div class="palette-card">
-        <strong>Ask Org</strong>
-        <input id="paletteInput" placeholder="/ask-org Who owns guidance signoff?" />
-      </div>
-    </div>
-
-    <script src="/app.js"></script>
+    <script src="/landing.js"></script>
   </body>
 </html>

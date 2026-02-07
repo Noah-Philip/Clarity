@@ -30,6 +30,8 @@ const state = {
   matchedChipIds: new Set(),
   absorbedCount: 0,
   expanded: false,
+  asking: false,
+  riverAbsorption: 0,
   mouse: { x: -1000, y: -1000, active: false },
   lastTs: performance.now()
 };
@@ -150,11 +152,6 @@ function absorbChip(chip) {
     hue: 220 + Math.random() * 30
   });
 
-  if (!state.expanded && state.absorbedCount >= 8) {
-    state.expanded = true;
-    orb.classList.add('expanded');
-    setTimeout(renderAnswerCard, 320);
-  }
 }
 
 function renderAnswerCard() {
@@ -219,41 +216,54 @@ function updateChips(dt, nowSec) {
   });
 }
 
-function updateMatchedChips() {
-  const words = questionInput.value
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 1);
+function askQuestion() {
+  const question = questionInput.value.trim();
+  if (!question || state.asking || state.expanded) return;
 
+  state.asking = true;
+  state.riverAbsorption = 0.001;
   state.matchedChipIds.clear();
-  if (!words.length) {
-    state.chips.forEach((chip) => chip.el.classList.remove('matching'));
-    return;
-  }
 
   for (const chip of state.chips) {
-    if (chip.absorbed || chip.absorption) continue;
-    const matched = chip.tags.some((tag) => words.some((word) => tag.includes(word) || word.includes(tag)));
-    chip.el.classList.toggle('matching', matched);
-    if (matched) {
-      state.matchedChipIds.add(chip.id);
-      if (!chip.absorption) beginAbsorption(chip);
-    }
+    chip.el.classList.remove('matching');
+    if (!chip.absorbed && !chip.absorption) beginAbsorption(chip);
+  }
+}
+
+function maybeRevealAnswer() {
+  const allChipsAbsorbed = state.chips.every((chip) => chip.absorbed);
+  if (!state.expanded && allChipsAbsorbed && state.riverAbsorption >= 0.98) {
+    state.expanded = true;
+    orb.classList.add('expanded');
+    setTimeout(renderAnswerCard, 320);
   }
 }
 
 function updateParticles(dt, nowSec) {
   const swirlRadius = 120;
+  const center = orbCenter();
+
+  if (state.asking && state.riverAbsorption < 1) {
+    state.riverAbsorption = Math.min(1, state.riverAbsorption + dt * 0.85);
+  }
 
   for (const p of state.particles) {
-    const angle = flowAngle(p.x, p.y, nowSec);
-    const baseX = 38 + Math.cos(angle) * 10;
-    const baseY = Math.sin(angle) * 8;
+    if (state.asking) {
+      const dx = center.x - p.x;
+      const dy = center.y - p.y;
+      const pull = 0.045 + state.riverAbsorption * 0.24;
+      p.vx = p.vx * 0.85 + dx * pull * dt * 60;
+      p.vy = p.vy * 0.85 + dy * pull * dt * 60;
+    } else {
+      const angle = flowAngle(p.x, p.y, nowSec);
+      const baseX = 38 + Math.cos(angle) * 10;
+      const baseY = Math.sin(angle) * 8;
 
-    p.vx = p.vx * 0.92 + baseX * dt;
-    p.vy = p.vy * 0.92 + baseY * dt;
+      p.vx = p.vx * 0.92 + baseX * dt;
+      p.vy = p.vy * 0.92 + baseY * dt;
+    }
 
-    if (state.mouse.active) {
+    if (!state.asking && state.mouse.active) {
       const dx = p.x - state.mouse.x;
       const dy = p.y - state.mouse.y;
       const d2 = dx * dx + dy * dy;
@@ -278,7 +288,8 @@ function updateParticles(dt, nowSec) {
     }
 
     ctx.beginPath();
-    ctx.fillStyle = `rgba(160, 182, 255, ${p.alpha})`;
+    const fade = 1 - state.riverAbsorption;
+    ctx.fillStyle = `rgba(160, 182, 255, ${Math.max(0, p.alpha * fade)})`;
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   }
@@ -298,6 +309,7 @@ function frame(ts) {
 
   updateParticles(dt, nowSec);
   updateChips(dt, nowSec);
+  maybeRevealAnswer();
   requestAnimationFrame(frame);
 }
 
@@ -313,9 +325,10 @@ function resize() {
   initParticles();
 }
 
-questionInput.addEventListener('input', () => {
-  if (state.expanded) return;
-  updateMatchedChips();
+questionInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  askQuestion();
 });
 
 window.addEventListener('pointermove', (event) => {
