@@ -16,7 +16,7 @@ body { margin: 0; background: radial-gradient(circle at top,#1f2340,#101219 55%)
 .ai-pane-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
 .ai-pane-header h3{ margin:0; }
 .pane-toggle{ background:#272d44; color:#dce3ff; padding:6px 10px; font-size:1rem; line-height:1; }
-.show-ai{ position:sticky; right:12px; align-self:start; margin:16px 16px 0 0; background:#272d44; color:#dce3ff; }
+.show-ai{ position:fixed; top:16px; right:16px; z-index:20; background:#272d44; color:#dce3ff; box-shadow:0 8px 24px rgba(0,0,0,.32); }
 .app-shell.ai-collapsed .ai-pane{ width:0; padding:0; opacity:0; border-right:none; pointer-events:none; }
 .app-shell.ai-collapsed .show-ai{ display:block; }
 .subtitle{ color: var(--sub); font-size: .82rem; }

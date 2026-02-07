@@ -77,6 +77,7 @@ function resetParticle(particle) {
   particle.vy = 0;
   particle.size = Math.random() * 1.6 + 0.6;
   particle.alpha = Math.random() * 0.7 + 0.2;
+  particle.absorbT = 0;
 }
 
 function initParticles() {
@@ -241,6 +242,8 @@ function maybeRevealAnswer() {
 
 function updateParticles(dt, nowSec) {
   const swirlRadius = 120;
+  const absorbRadius = 110;
+  const absorbRadiusSq = absorbRadius * absorbRadius;
   const center = orbCenter();
 
   if (state.asking && state.riverAbsorption < 1) {
@@ -280,6 +283,28 @@ function updateParticles(dt, nowSec) {
     p.x += p.vx;
     p.y += p.vy;
 
+    if (state.asking) {
+      const dx = center.x - p.x;
+      const dy = center.y - p.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= absorbRadiusSq) {
+        p.absorbT = Math.min(1, p.absorbT + dt * 2.6);
+      } else {
+        p.absorbT = Math.max(0, p.absorbT - dt * 1.2);
+      }
+      if (p.absorbT >= 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnRadius = Math.max(state.width, state.height) * 0.6;
+        p.x = center.x + Math.cos(angle) * spawnRadius;
+        p.y = center.y + Math.sin(angle) * spawnRadius;
+        p.vx = (Math.random() * 2 - 1) * 0.6;
+        p.vy = (Math.random() * 2 - 1) * 0.6;
+        p.absorbT = 0;
+      }
+    } else {
+      p.absorbT = Math.max(0, p.absorbT - dt * 2.2);
+    }
+
     if (p.x > state.width + 20 || p.y < -20 || p.y > state.height + 20) {
       p.x = -10;
       p.y = Math.random() * state.height;
@@ -288,8 +313,9 @@ function updateParticles(dt, nowSec) {
     }
 
     ctx.beginPath();
-    const fade = 1 - state.riverAbsorption;
-    ctx.fillStyle = `rgba(160, 182, 255, ${Math.max(0, p.alpha * fade)})`;
+    const riverFade = 1 - state.riverAbsorption * 0.55;
+    const absorbFade = 1 - p.absorbT;
+    ctx.fillStyle = `rgba(160, 182, 255, ${Math.max(0, p.alpha * riverFade * absorbFade)})`;
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
   }

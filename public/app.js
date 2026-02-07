@@ -157,6 +157,7 @@ function setAiPaneCollapsed(collapsed) {
   nodes.appShell.classList.toggle('ai-collapsed', collapsed);
   nodes.showAiPane.classList.toggle('hidden', !collapsed);
   nodes.aiPane.setAttribute('aria-hidden', String(collapsed));
+  nodes.showAiPane.setAttribute('aria-expanded', String(!collapsed));
 }
 
 nodes.hideAiPane.addEventListener('click', () => {
