@@ -129,7 +129,7 @@ function beginAbsorption(chip) {
 
   chip.absorption = {
     t: 0,
-    duration: 1.2 + Math.random() * 0.5,
+    duration: 1.6 + Math.random() * 0.7,
     startX,
     startY,
     ctrlX,
