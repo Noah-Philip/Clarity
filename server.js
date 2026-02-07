@@ -180,7 +180,7 @@ function broadcast(event, payload) {
 }
 
 function serveStatic(req, res, pathname) {
-  const filePath = pathname === '/' ? '/index.html' : pathname;
+  const filePath = pathname === '/' ? '/landing.html' : pathname;
   const fullPath = path.join(__dirname, 'public', filePath);
   if (!fullPath.startsWith(path.join(__dirname, 'public'))) {
     res.writeHead(403);
