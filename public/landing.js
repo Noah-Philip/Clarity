@@ -77,7 +77,31 @@ function resetParticle(particle) {
   particle.vy = 0;
   particle.size = Math.random() * 1.6 + 0.6;
   particle.alpha = Math.random() * 0.7 + 0.2;
-  particle.absorbT = 0;
+  particle.absorption = null;
+}
+
+function beginParticleAbsorption(particle, center) {
+  const startX = particle.x;
+  const startY = particle.y;
+
+  particle.absorption = {
+    t: 0,
+    duration: 0.5 + Math.random() * 0.35,
+    startX,
+    startY,
+    endX: center.x,
+    endY: center.y
+  };
+}
+
+function resetParticleAroundCenter(particle, center) {
+  const angle = Math.random() * Math.PI * 2;
+  const spawnRadius = Math.max(state.width, state.height) * (0.56 + Math.random() * 0.22);
+  particle.x = center.x + Math.cos(angle) * spawnRadius;
+  particle.y = center.y + Math.sin(angle) * spawnRadius;
+  particle.vx = (Math.random() * 2 - 1) * 0.6;
+  particle.vy = (Math.random() * 2 - 1) * 0.6;
+  particle.absorption = null;
 }
 
 function initParticles() {
@@ -257,6 +281,11 @@ function updateParticles(dt, nowSec) {
       const pull = 0.045 + state.riverAbsorption * 0.24;
       p.vx = p.vx * 0.85 + dx * pull * dt * 60;
       p.vy = p.vy * 0.85 + dy * pull * dt * 60;
+
+      const d2 = dx * dx + dy * dy;
+      if (!p.absorption && d2 <= absorbRadiusSq) {
+        beginParticleAbsorption(p, center);
+      }
     } else {
       const angle = flowAngle(p.x, p.y, nowSec);
       const baseX = 38 + Math.cos(angle) * 10;
@@ -283,26 +312,17 @@ function updateParticles(dt, nowSec) {
     p.x += p.vx;
     p.y += p.vy;
 
-    if (state.asking) {
-      const dx = center.x - p.x;
-      const dy = center.y - p.y;
-      const d2 = dx * dx + dy * dy;
-      if (d2 <= absorbRadiusSq) {
-        p.absorbT = Math.min(1, p.absorbT + dt * 2.6);
-      } else {
-        p.absorbT = Math.max(0, p.absorbT - dt * 1.2);
-      }
-      if (p.absorbT >= 1) {
-        const angle = Math.random() * Math.PI * 2;
-        const spawnRadius = Math.max(state.width, state.height) * 0.6;
-        p.x = center.x + Math.cos(angle) * spawnRadius;
-        p.y = center.y + Math.sin(angle) * spawnRadius;
-        p.vx = (Math.random() * 2 - 1) * 0.6;
-        p.vy = (Math.random() * 2 - 1) * 0.6;
-        p.absorbT = 0;
+    if (state.asking && p.absorption) {
+      p.absorption.t += dt / p.absorption.duration;
+      const t = Math.min(1, p.absorption.t);
+      const eased = 1 - Math.pow(1 - t, 3);
+      p.x = p.absorption.startX + (p.absorption.endX - p.absorption.startX) * eased;
+      p.y = p.absorption.startY + (p.absorption.endY - p.absorption.startY) * eased;
+      if (t >= 1) {
+        resetParticleAroundCenter(p, center);
       }
     } else {
-      p.absorbT = Math.max(0, p.absorbT - dt * 2.2);
+      p.absorption = null;
     }
 
     if (p.x > state.width + 20 || p.y < -20 || p.y > state.height + 20) {
@@ -314,7 +334,7 @@ function updateParticles(dt, nowSec) {
 
     ctx.beginPath();
     const riverFade = 1 - state.riverAbsorption * 0.55;
-    const absorbFade = 1 - p.absorbT;
+    const absorbFade = p.absorption ? 1 - Math.min(1, p.absorption.t) : 1;
     ctx.fillStyle = `rgba(160, 182, 255, ${Math.max(0, p.alpha * riverFade * absorbFade)})`;
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
     ctx.fill();
