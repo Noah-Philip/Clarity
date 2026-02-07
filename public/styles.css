@@ -23,6 +23,8 @@ body { margin: 0; background: radial-gradient(circle at top,#1f2340,#101219 55%)
 .channels button{ width: 100%; background: transparent; color: var(--sub); border: 1px solid transparent; text-align: left; padding: 8px; border-radius: 10px; margin-bottom: 4px; cursor: pointer; }
 .channels button.active,.channels button:hover{ background: #23283a; color: white; border-color:#3a4160; }
 .cmd-btn{ margin-top: 8px; width:100%; background:#272d44; color:#dce3ff; border:none; padding:10px; border-radius:10px; }
+.landing-link{ margin-top:8px; display:block; text-align:center; text-decoration:none; color:#cdd6ff; border:1px solid #3b4467; border-radius:10px; padding:9px; background:#1b2135; }
+.landing-link:hover{ border-color:#7f90ff; color:#eef1ff; }
 header{ display:flex; justify-content:space-between; align-items:center; }
 .presence{ color: #ff7b7b; font-size:.8rem; }
 .messages{ height: calc(100vh - 170px); overflow:auto; padding-right: 8px; }
