@@ -8,7 +8,9 @@
   --orb: #8796ff;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -23,16 +25,17 @@ body {
   min-height: 100vh;
   width: 100vw;
   isolation: isolate;
-  transition: filter 0.6s ease;
-}
-
-.landing.clarity-mode {
-  filter: saturate(0.75) brightness(1.08);
 }
 
 #riverCanvas,
-.chip-layer { position: absolute; inset: 0; }
-.chip-layer { pointer-events: none; }
+.chip-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.chip-layer {
+  pointer-events: none;
+}
 
 .hero {
   position: relative;
@@ -53,36 +56,36 @@ body {
   background: rgba(14, 19, 34, 0.5);
 }
 
-h1 { margin: 0; font-size: clamp(2rem, 6vw, 4.5rem); line-height: 0.94; }
-p { color: var(--muted); max-width: 640px; margin-top: 18px; margin-bottom: 30px; }
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  line-height: 0.94;
+}
 
-.hero-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+p {
+  color: var(--muted);
+  max-width: 640px;
+  margin-top: 18px;
+  margin-bottom: 30px;
+}
+
+.hero-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
 
 #heroQuestion {
-  width: min(620px, calc(100vw - 300px));
-  min-width: 220px;
+  width: min(660px, calc(100vw - 220px));
+  min-width: 240px;
   border: 1px solid rgba(149, 165, 255, 0.5);
   background: rgba(14, 20, 38, 0.74);
+  backdrop-filter: blur(8px);
   color: var(--ink);
   border-radius: 16px;
   padding: 14px 16px;
   font-size: 1rem;
-}
-
-#heroAsk {
-  border: none;
-  border-radius: 14px;
-  background: linear-gradient(145deg, #8c9bff, #6f80ff);
-  color: white;
-  font-weight: 600;
-  padding: 14px 16px;
-  cursor: pointer;
-}
-
-#heroAsk:disabled,
-#heroQuestion:disabled {
-  opacity: 0.65;
-  cursor: default;
 }
 
 .synthesis-orb {
@@ -100,8 +103,8 @@ p { color: var(--muted); max-width: 640px; margin-top: 18px; margin-bottom: 30px
 }
 
 .synthesis-orb.expanded {
-  width: min(520px, 96vw);
-  height: 250px;
+  width: min(460px, 92vw);
+  height: 240px;
   border-radius: 24px;
   background: linear-gradient(160deg, rgba(31, 42, 86, 0.85), rgba(17, 22, 39, 0.94));
 }
@@ -115,14 +118,39 @@ p { color: var(--muted); max-width: 640px; margin-top: 18px; margin-bottom: 30px
   transition: opacity 0.4s ease;
 }
 
-.synthesis-orb.expanded .orb-core { opacity: 0; }
+.synthesis-orb.expanded .orb-core {
+  opacity: 0;
+}
 
-.answer-card { position: absolute; inset: 20px; opacity: 1; transition: opacity 0.45s ease; overflow: auto; }
-.answer-card.hidden { opacity: 0; pointer-events: none; }
-.answer-card h2 { margin: 0; font-size: 1.05rem; }
-.answer-card ul { margin: 10px 0; padding-left: 18px; color: #d5ddff; }
+.answer-card {
+  position: absolute;
+  inset: 20px;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
 
-.pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.answer-card.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.answer-card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.answer-card ul {
+  margin: 10px 0;
+  padding-left: 18px;
+  color: #d5ddff;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .pills span {
   font-size: 0.78rem;
   border-radius: 999px;
@@ -144,7 +172,13 @@ p { color: var(--muted); max-width: 640px; margin-top: 18px; margin-bottom: 30px
   will-change: transform, opacity;
 }
 
-.tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tags {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .tags span {
   font-size: 0.68rem;
   color: #b8c1ea;
@@ -153,10 +187,31 @@ p { color: var(--muted); max-width: 640px; margin-top: 18px; margin-bottom: 30px
   padding: 2px 6px;
 }
 
+.message-chip.matching {
+  border-color: rgba(231, 237, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(203, 215, 255, 0.75), 0 10px 28px rgba(95, 110, 210, 0.45);
+}
+
 @media (max-width: 768px) {
-  body { overflow-y: auto; }
-  .landing { min-height: 100svh; }
-  .hero-controls { align-items: stretch; }
-  #heroQuestion { width: 100%; min-width: 0; }
-  .message-chip { max-width: 70vw; font-size: 0.78rem; }
+  body {
+    overflow-y: auto;
+  }
+
+  .landing {
+    min-height: 100svh;
+  }
+
+  .hero-controls {
+    align-items: stretch;
+  }
+
+  #heroQuestion {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .message-chip {
+    max-width: 70vw;
+    font-size: 0.78rem;
+  }
 }

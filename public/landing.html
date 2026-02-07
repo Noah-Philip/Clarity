@@ -7,25 +7,24 @@
     <link rel="stylesheet" href="/landing.css" />
   </head>
   <body>
-    <main id="landing" class="landing">
+    <main class="landing">
       <canvas id="riverCanvas" aria-hidden="true"></canvas>
       <div id="chipLayer" class="chip-layer" aria-live="polite"></div>
 
       <section class="hero">
         <a class="workspace-link" href="/index.html">← Open workspace</a>
-        <h1>Ask the river.<br />Watch noise become clarity.</h1>
+        <h1>Ask the river.<br />Watch ideas converge.</h1>
         <p>
-          Clarity starts with a messy stream of signals. Ask one question, then watch the full scene collapse into a
-          single synthesis.
+          Clarity distills scattered conversations into a fast synthesis. Type a question and matching insight chips
+          flow into the orb.
         </p>
-        <form id="heroForm" class="hero-controls">
+        <div class="hero-controls">
           <input id="heroQuestion" type="text" placeholder="Who owns launch rehearsal runbook updates?" />
-          <button id="heroAsk" type="submit">Synthesize</button>
           <div id="orb" class="synthesis-orb" role="status" aria-label="Synthesis orb">
             <div class="orb-core"></div>
             <div id="answerCard" class="answer-card hidden" aria-live="polite"></div>
           </div>
-        </form>
+        </div>
       </section>
     </main>
 

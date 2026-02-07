@@ -1,10 +1,7 @@
 const canvas = document.getElementById('riverCanvas');
 const ctx = canvas.getContext('2d', { alpha: true });
 const chipLayer = document.getElementById('chipLayer');
-const landing = document.getElementById('landing');
-const heroForm = document.getElementById('heroForm');
 const questionInput = document.getElementById('heroQuestion');
-const askButton = document.getElementById('heroAsk');
 const orb = document.getElementById('orb');
 const answerCard = document.getElementById('answerCard');
 
@@ -18,21 +15,23 @@ const chipBlueprints = [
   { text: 'Tank pressure limits unchanged', tags: ['propulsion', 'limits', 'calibration'] },
   { text: 'Monte Carlo reruns need backup', tags: ['guidance', 'monte', 'rerun'] },
   { text: 'Reference Jan 12 #ops summary', tags: ['ops', 'summary', 'source'] },
-  { text: 'Pinned threads drive confidence', tags: ['rag', 'confidence', 'pinned'] }
+  { text: 'Pinned threads drive confidence', tags: ['rag', 'confidence', 'pinned'] },
+  { text: 'Cross-team updates are merged hourly', tags: ['cross-team', 'sync', 'hourly'] },
+  { text: 'Source chain includes owners + timestamps', tags: ['source', 'owner', 'timestamp'] }
 ];
 
 const state = {
   width: window.innerWidth,
   height: window.innerHeight,
   isMobile: window.matchMedia('(max-width: 768px)').matches,
-  phase: 'idle',
   particles: [],
   chips: [],
+  dots: [],
+  matchedChipIds: new Set(),
+  absorbedCount: 0,
+  expanded: false,
   mouse: { x: -1000, y: -1000, active: false },
-  absorbProgress: 0,
-  lastTs: performance.now(),
-  question: '',
-  ragResult: null
+  lastTs: performance.now()
 };
 
 function smoothstep(t) {
@@ -49,13 +48,17 @@ function valueNoise(x, y) {
   const yi = Math.floor(y);
   const tx = x - xi;
   const ty = y - yi;
+
   const v00 = hash2d(xi, yi);
   const v10 = hash2d(xi + 1, yi);
   const v01 = hash2d(xi, yi + 1);
   const v11 = hash2d(xi + 1, yi + 1);
+
   const sx = smoothstep(tx);
   const sy = smoothstep(ty);
-  return (v00 + (v10 - v00) * sx) + ((v01 + (v11 - v01) * sx) - (v00 + (v10 - v00) * sx)) * sy;
+  const ix0 = v00 + (v10 - v00) * sx;
+  const ix1 = v01 + (v11 - v01) * sx;
+  return ix0 + (ix1 - ix0) * sy;
 }
 
 function flowAngle(x, y, t) {
@@ -65,27 +68,21 @@ function flowAngle(x, y, t) {
   return (n1 * 0.9 + n2 * 0.5) * Math.PI * 1.8 - Math.PI * 0.4;
 }
 
-function orbCenter() {
-  const rect = orb.getBoundingClientRect();
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-}
-
-function resetParticle(p) {
-  p.x = Math.random() * state.width;
-  p.y = Math.random() * state.height;
-  p.vx = 0;
-  p.vy = 0;
-  p.size = Math.random() * 1.6 + 0.6;
-  p.alpha = Math.random() * 0.65 + 0.2;
-  p.absorbed = false;
+function resetParticle(particle) {
+  particle.x = Math.random() * state.width;
+  particle.y = Math.random() * state.height;
+  particle.vx = 0;
+  particle.vy = 0;
+  particle.size = Math.random() * 1.6 + 0.6;
+  particle.alpha = Math.random() * 0.7 + 0.2;
 }
 
 function initParticles() {
-  const count = state.isMobile ? 240 : 720;
+  const count = state.isMobile ? 260 : 760;
   state.particles = Array.from({ length: count }, () => {
-    const p = {};
-    resetParticle(p);
-    return p;
+    const particle = {};
+    resetParticle(particle);
+    return particle;
   });
 }
 
@@ -94,98 +91,190 @@ function createChip(blueprint, index) {
   el.className = 'message-chip';
   el.innerHTML = `${blueprint.text}<div class="tags">${blueprint.tags.map((tag) => `<span>${tag}</span>`).join('')}</div>`;
   chipLayer.appendChild(el);
+
+  const spreadY = Math.max(120, state.height - 260);
   return {
     id: index,
     el,
+    tags: blueprint.tags,
+    text: blueprint.text,
     x: 36 + Math.random() * Math.max(0, state.width - 300),
-    y: 110 + Math.random() * Math.max(120, state.height - 260),
-    vx: 8 + Math.random() * 10,
+    y: 110 + Math.random() * spreadY,
     drift: Math.random() * 2 - 1,
     phase: Math.random() * Math.PI * 2,
-    scale: 1,
-    opacity: 1,
-    absorbed: false
+    baseV: 8 + Math.random() * 10,
+    absorbed: false,
+    absorption: null
   };
 }
 
 function initChips() {
   chipLayer.innerHTML = '';
-  state.chips = chipBlueprints.map(createChip);
+  state.chips = chipBlueprints.map((blueprint, i) => createChip(blueprint, i));
 }
 
-function absorbToOrb(entity, center, strength) {
-  const dx = center.x - entity.x;
-  const dy = center.y - entity.y;
-  entity.x += dx * strength;
-  entity.y += dy * strength;
+function orbCenter() {
+  const rect = orb.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
-function updateChips(dt, t) {
+function beginAbsorption(chip) {
   const center = orbCenter();
-  const absorbing = state.phase === 'absorbing';
+  const startX = chip.x;
+  const startY = chip.y;
+  const ctrlX = (startX + center.x) / 2 + (Math.random() * 120 - 60);
+  const ctrlY = Math.min(startY, center.y) - (Math.random() * 80 + 40);
 
-  for (const chip of state.chips) {
-    if (chip.absorbed) continue;
+  chip.absorption = {
+    t: 0,
+    duration: 1.2 + Math.random() * 0.5,
+    startX,
+    startY,
+    ctrlX,
+    ctrlY,
+    endX: center.x,
+    endY: center.y
+  };
+}
 
-    if (!absorbing) {
-      chip.x += chip.vx * dt * 0.75;
-      chip.y += chip.drift * dt * 10 + Math.sin(t * 0.7 + chip.phase) * 0.24;
-      if (chip.x > state.width + 140) chip.x = -260;
-      if (chip.y < 84) chip.y = 84;
-      if (chip.y > state.height - 60) chip.y = state.height - 60;
-    } else {
-      absorbToOrb(chip, center, 0.06 + state.absorbProgress * 0.08);
-      chip.scale = Math.max(0.08, chip.scale - dt * 0.85);
-      chip.opacity = Math.max(0, chip.opacity - dt * 1.2);
-      if (chip.opacity <= 0.01) chip.absorbed = true;
-    }
+function absorbChip(chip) {
+  chip.absorbed = true;
+  chip.el.style.opacity = '0';
+  state.absorbedCount += 1;
 
-    chip.el.style.opacity = String(chip.opacity);
-    chip.el.style.transform = `translate3d(${chip.x}px, ${chip.y}px, 0) scale(${chip.scale})`;
+  state.dots.push({
+    angle: Math.random() * Math.PI * 2,
+    radius: 28 + Math.random() * 22,
+    speed: 0.8 + Math.random() * 1.2,
+    size: 2 + Math.random() * 2,
+    hue: 220 + Math.random() * 30
+  });
+
+  if (!state.expanded && state.absorbedCount >= 8) {
+    state.expanded = true;
+    orb.classList.add('expanded');
+    setTimeout(renderAnswerCard, 320);
   }
 }
 
-function updateParticles(dt, t) {
+function renderAnswerCard() {
+  answerCard.classList.remove('hidden');
+  const query = questionInput.value.trim() || 'your question';
+  answerCard.innerHTML = `
+    <h2>Synthesis for: “${query}”</h2>
+    <ul>
+      <li>Operational ownership converges around <strong>#ops</strong> for runbook and launch rehearsals.</li>
+      <li>Recent decisions emphasize pinned updates for higher confidence and faster retrieval.</li>
+      <li>Guidance and propulsion notes indicate stable limits with explicit signoff accountability.</li>
+    </ul>
+    <div class="pills">
+      <span>#ops-summary</span>
+      <span>#guidance-signoff</span>
+      <span>#propulsion-rev-c</span>
+      <span>pinned-thread-index</span>
+    </div>
+  `;
+}
+
+function bezierPoint(t, p0, p1, p2) {
+  const inv = 1 - t;
+  return inv * inv * p0 + 2 * inv * t * p1 + t * t * p2;
+}
+
+function updateChips(dt, nowSec) {
   const center = orbCenter();
+  for (const chip of state.chips) {
+    if (chip.absorbed) continue;
+
+    if (chip.absorption) {
+      chip.absorption.t += dt / chip.absorption.duration;
+      const t = Math.min(1, chip.absorption.t);
+      const eased = 1 - Math.pow(1 - t, 3);
+      chip.x = bezierPoint(eased, chip.absorption.startX, chip.absorption.ctrlX, chip.absorption.endX);
+      chip.y = bezierPoint(eased, chip.absorption.startY, chip.absorption.ctrlY, chip.absorption.endY);
+      chip.el.style.opacity = String(1 - eased);
+      chip.el.style.transform = `translate3d(${chip.x}px, ${chip.y}px, 0) scale(${1 - eased * 0.75})`;
+      if (t >= 1) absorbChip(chip);
+      continue;
+    }
+
+    chip.x += chip.baseV * dt * 0.75;
+    chip.y += chip.drift * dt * 10 + Math.sin(nowSec * 0.7 + chip.phase) * 0.22;
+
+    if (chip.x > state.width + 120) chip.x = -240;
+    if (chip.y < 84) chip.y = 84;
+    if (chip.y > state.height - 60) chip.y = state.height - 60;
+
+    chip.el.style.transform = `translate3d(${chip.x}px, ${chip.y}px, 0)`;
+  }
+
+  state.dots.forEach((dot) => {
+    dot.angle += dt * dot.speed;
+    const x = center.x + Math.cos(dot.angle) * dot.radius;
+    const y = center.y + Math.sin(dot.angle) * dot.radius;
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${dot.hue} 100% 80% / 0.85)`;
+    ctx.arc(x, y, dot.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function updateMatchedChips() {
+  const words = questionInput.value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 1);
+
+  state.matchedChipIds.clear();
+  if (!words.length) {
+    state.chips.forEach((chip) => chip.el.classList.remove('matching'));
+    return;
+  }
+
+  for (const chip of state.chips) {
+    if (chip.absorbed || chip.absorption) continue;
+    const matched = chip.tags.some((tag) => words.some((word) => tag.includes(word) || word.includes(tag)));
+    chip.el.classList.toggle('matching', matched);
+    if (matched) {
+      state.matchedChipIds.add(chip.id);
+      if (!chip.absorption) beginAbsorption(chip);
+    }
+  }
+}
+
+function updateParticles(dt, nowSec) {
   const swirlRadius = 120;
 
   for (const p of state.particles) {
-    if (p.absorbed) continue;
+    const angle = flowAngle(p.x, p.y, nowSec);
+    const baseX = 38 + Math.cos(angle) * 10;
+    const baseY = Math.sin(angle) * 8;
 
-    if (state.phase !== 'absorbing') {
-      const angle = flowAngle(p.x, p.y, t);
-      const baseX = 38 + Math.cos(angle) * 10;
-      const baseY = Math.sin(angle) * 8;
-      p.vx = p.vx * 0.92 + baseX * dt;
-      p.vy = p.vy * 0.92 + baseY * dt;
+    p.vx = p.vx * 0.92 + baseX * dt;
+    p.vy = p.vy * 0.92 + baseY * dt;
 
-      if (state.mouse.active) {
-        const dx = p.x - state.mouse.x;
-        const dy = p.y - state.mouse.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < swirlRadius * swirlRadius && d2 > 8) {
-          const dist = Math.sqrt(d2);
-          const tangentX = -dy / dist;
-          const tangentY = dx / dist;
-          const force = ((swirlRadius - dist) / swirlRadius) * 42;
-          p.vx += tangentX * force * dt;
-          p.vy += tangentY * force * dt;
-        }
+    if (state.mouse.active) {
+      const dx = p.x - state.mouse.x;
+      const dy = p.y - state.mouse.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < swirlRadius * swirlRadius && d2 > 8) {
+        const dist = Math.sqrt(d2);
+        const tangentX = -dy / dist;
+        const tangentY = dx / dist;
+        const force = ((swirlRadius - dist) / swirlRadius) * 42;
+        p.vx += tangentX * force * dt;
+        p.vy += tangentY * force * dt;
       }
+    }
 
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x > state.width + 20 || p.y < -20 || p.y > state.height + 20) {
-        p.x = -10;
-        p.y = Math.random() * state.height;
-        p.vx = Math.random() * 0.8;
-        p.vy = 0;
-      }
-    } else {
-      absorbToOrb(p, center, 0.04 + state.absorbProgress * 0.07);
-      p.alpha = Math.max(0, p.alpha - dt * 0.9);
-      p.size = Math.max(0.2, p.size - dt * 0.45);
-      if (p.alpha <= 0.02) p.absorbed = true;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    if (p.x > state.width + 20 || p.y < -20 || p.y > state.height + 20) {
+      p.x = -10;
+      p.y = Math.random() * state.height;
+      p.vx = Math.random() * 0.8;
+      p.vy = 0;
     }
 
     ctx.beginPath();
@@ -195,72 +284,15 @@ function updateParticles(dt, t) {
   }
 }
 
-function renderAnswer() {
-  const result = state.ragResult;
-  const bullets = result?.sources?.slice(0, 3).map((source) => source.text) || [
-    'Recent operational threads point to Ops ownership for launch rehearsal updates.',
-    'Pinned decisions carry the strongest confidence in synthesis.',
-    'Cross-team telemetry and signoff notes remain linked to latest sources.'
-  ];
-  const pills = result?.sources?.slice(0, 4).map((source) => `#${source.channel}`) || ['#ops', '#guidance', '#propulsion'];
-  const answerText = result?.answer || 'Signals converged. This is the clearest synthesis from recent context.';
-
-  answerCard.classList.remove('hidden');
-  answerCard.innerHTML = `
-    <h2>Synthesis for: “${state.question}”</h2>
-    <ul>${bullets.map((b) => `<li>${b}</li>`).join('')}</ul>
-    <p>${answerText}</p>
-    <div class="pills">${pills.map((p) => `<span>${p}</span>`).join('')}</div>
-  `;
-}
-
-async function fetchSynthesis(question) {
-  try {
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, maxAgeHours: 96 })
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-async function startSynthesis() {
-  const question = questionInput.value.trim();
-  if (!question || state.phase !== 'idle') return;
-
-  state.phase = 'absorbing';
-  state.question = question;
-  state.absorbProgress = 0;
-  questionInput.disabled = true;
-  askButton.disabled = true;
-  landing.classList.add('clarity-mode');
-
-  const resultPromise = fetchSynthesis(question);
-
-  setTimeout(async () => {
-    state.phase = 'revealed';
-    orb.classList.add('expanded');
-    state.ragResult = await resultPromise;
-    renderAnswer();
-  }, 2200);
-}
-
 function frame(ts) {
   const nowSec = ts * 0.001;
   const dt = Math.min(0.033, (ts - state.lastTs) * 0.001);
   state.lastTs = ts;
 
-  if (state.phase === 'absorbing') state.absorbProgress = Math.min(1, state.absorbProgress + dt / 2.2);
-
   if (state.isMobile) {
     ctx.clearRect(0, 0, state.width, state.height);
   } else {
-    const fade = state.phase === 'absorbing' ? 0.45 : 0.26;
-    ctx.fillStyle = `rgba(7, 10, 18, ${fade})`;
+    ctx.fillStyle = 'rgba(7, 10, 18, 0.26)';
     ctx.fillRect(0, 0, state.width, state.height);
   }
 
@@ -278,15 +310,12 @@ function resize() {
   canvas.style.width = `${state.width}px`;
   canvas.style.height = `${state.height}px`;
   ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-  if (state.phase === 'idle') {
-    initParticles();
-    initChips();
-  }
+  initParticles();
 }
 
-heroForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  startSynthesis();
+questionInput.addEventListener('input', () => {
+  if (state.expanded) return;
+  updateMatchedChips();
 });
 
 window.addEventListener('pointermove', (event) => {
@@ -302,6 +331,7 @@ window.addEventListener('pointerleave', () => {
 window.addEventListener('resize', resize);
 
 resize();
+initChips();
 requestAnimationFrame((ts) => {
   state.lastTs = ts;
   frame(ts);
