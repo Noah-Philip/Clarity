@@ -1,0 +1,11 @@
+{
+  "name": "clarity-rag-workspace",
+  "version": "0.1.0",
+  "description": "Slack-inspired org knowledge workspace with chat-aware RAG",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js"
+  }
+}
